@@ -6,6 +6,10 @@ namespace jackmd\scorefactory;
 use pocketmine\network\mcpe\protocol\SetDisplayObjectivePacket;
 use pocketmine\network\mcpe\protocol\types\ScorePacketEntry;
 use pocketmine\player\Player;
+use function array_keys;
+use function array_values;
+use function count;
+use function ksort;
 
 /**
  * @internal
@@ -15,8 +19,19 @@ class ScoreCache {
 	public const MIN_ENTRIY_INDEX = 1;
 	public const MAX_ENTRIY_INDEX = 15;
 
-	/** @var ScorePacketEntry[] */
+	/**
+	 * The lines the player should show, by line.
+	 *
+	 * @var ScorePacketEntry[]
+	 */
 	private array $entries = [];
+
+	/**
+	 * The lines the client is showing right now, by line, with their text.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $sent = [];
 
 	private function __construct(
 		private Player $player,
@@ -62,10 +77,10 @@ class ScoreCache {
 	 * @phpstan-return list<ScorePacketEntry>
 	 */
 	public function getEntriesList(): array {
-		$enttries  = $this->entries;
-		ksort($enttries);
+		$entries = $this->entries;
+		ksort($entries);
 
-		return array_values($enttries);
+		return array_values($entries);
 	}
 
 	/**
@@ -95,6 +110,40 @@ class ScoreCache {
 
 	public function removeEntry(int $index): void {
 		unset($this->entries[$index]);
+	}
+
+	public function getEntry(int $line): ?ScorePacketEntry {
+		return $this->entries[$line] ?? null;
+	}
+
+	public function isSent(int $line): bool {
+		return isset($this->sent[$line]);
+	}
+
+	/**
+	 * @return list<int>
+	 */
+	public function getSentLines(): array {
+		return array_keys($this->sent);
+	}
+
+	/**
+	 * Whether the client already shows this line with this exact text.
+	 */
+	public function isShowing(int $line, string $text): bool {
+		return ($this->sent[$line] ?? null) === $text;
+	}
+
+	public function markSent(int $line, string $text): void {
+		$this->sent[$line] = $text;
+	}
+
+	public function forgetSent(int $line): void {
+		unset($this->sent[$line]);
+	}
+
+	public function clearSent(): void {
+		$this->sent = [];
 	}
 
 	public function __destruct() {
